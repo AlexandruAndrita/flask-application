@@ -1,12 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=3d&display=swap">
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="icon" type="image/x-icon" href="/static/icons/appIcon.png">
+    <title>Image Depixelation</title>
+</head>
+<body>
+    <h1 class="title-font-effect-3d">Image Depixelation</h1>
 
-    <head>
-        <title>Main Page</title>
-    </head>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-messages" data-category="{{ category }}" data-message="{{ message }}">
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-    <body>
-        <h3>Index Page</h3>
-    </body>
+    <h2 class="subtitle-font-effect-3d" >Upload an Image and Boolean Mask:</h2>
+    <form action="/" method="post" enctype="multipart/form-data">
+        <label for="file">Image</label>
+        <input type="file" name="file" id="file">
+        <label for="pickle_file">Mask</label>
+        <input type="file" name="pickle_file" id="pickle_file">
+        <button type="submit" class="button">Upload</button>
+    </form>
 
+    <div class="row">
+        <div class="column">
+            {% if filename %}
+                <div class="card">
+                    <h2 class="card-font-effect-3d">Uploaded Image:</h2>
+                    <img src="data:image/jpeg;base64,{{ filename }}" alt="Uploaded Image" width="400">
+                    <div class="button-container">
+                        <form id="processForm" action="/process" class="card-background-color" method="post">
+                            <input type="hidden" name="filename" value="{{ filename }}">
+                            <input type="hidden" name="pickle_file" value="{{ pickle_file }}">
+                            <button type="submit" class="card-button">Process Image</button>
+                        </form>
+                        <form action="/discard_input_image" class="card-background-color" method="post" onsubmit="confirmDiscardImages('/discard_input_image'); return false">
+                            <input type="hidden" name="filename" value="{{ filename }}">
+                            <button type="submit" class="card-button">Discard Input Image</button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="column">
+            {% if processed_filenames %}
+                <div class="card">
+                    <div class="slideshow-container">
+                        {% for processed_filename in processed_filenames %}
+                            <div class="processedImages fade">
+                                <div class="imageNumbering">{{ loop.index }} / {{ processed_filenames | length }}</div>
+                                <h2 class="card-font-effect-3d">Processed Image</h2>
+                                <img src="data:image/jpeg;base64,{{ processed_filename }}" alt="Processed Image" width="400">
+                                <div class="button-container">
+                                    <form action="/save_image" class="card-background-color" method="post">
+                                        <input type="hidden" name="filename" value="{{ processed_filename }}">
+                                        <button type="submit" class="card-button">Save Processed Image</button>
+                                    </form>
+                                    <form action="/discard_images" class="card-background-color" method="post" onsubmit="confirmDiscardImages('/discard_images'); return false">
+                                        <button type="submit" class="card-button">Discard Images</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        <a class="prev" onclick="previousNextImage(-1)">❮</a>
+                        <a class="next" onclick="previousNextImage(1)">❯</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="/static/js/index.js"></script>
+    <script src="/static/js/alertMessages.js"></script>
+    <script src="/static/js/processImage.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+
+</body>
 </html>
+
+
