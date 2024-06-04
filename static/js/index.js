@@ -42,27 +42,43 @@ function confirmDiscardImages(endpoint) {
     });
 }
 
+function submitSaveImageForm() {
+    window.onload = function() {
+        document.cookie = 'fileDownload=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    };
+
+    document.getElementById('saveImageForm').submit();
+
+    var checkCookie = setInterval(function() {
+        if (document.cookie.split(';').some((item) => item.trim().startsWith('fileDownload='))) {
+            window.location.href = '/';
+            document.cookie = 'fileDownload=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            clearInterval(checkCookie);
+        }
+    }, 500);
+}
+
 function showSlides(n)
 {
-  let processedImages = document.getElementsByClassName("processedImages");
-  if (n > processedImages.length)
-  {
-      imageIndex = 1
-  }
-  if (n < 1)
-  {
-      imageIndex = processedImages.length
-  }
-  for (let i = 0; i < processedImages.length; i++)
-  {
+    let processedImages = document.getElementsByClassName("processedImages");
+    if (n > processedImages.length)
+    {
+        imageIndex = 1
+    }
+    if (n < 1)
+    {
+        imageIndex = processedImages.length
+    }
+    for (let i = 0; i < processedImages.length; i++)
+    {
     processedImages[i].style.display = "none";
-  }
-  processedImages[imageIndex-1].style.display = "block";
+    }
+    processedImages[imageIndex-1].style.display = "block";
 }
 
 function previousNextImage(n)
 {
-  showSlides(imageIndex += n);
+    showSlides(imageIndex += n);
 }
 
 let imageIndex = 1;

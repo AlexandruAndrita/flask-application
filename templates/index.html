@@ -60,9 +60,9 @@
                                 <h2 class="card-font-effect-3d">Processed Image</h2>
                                 <img src="data:image/jpeg;base64,{{ processed_filename }}" alt="Processed Image" width="400">
                                 <div class="button-container">
-                                    <form action="/save_image" class="card-background-color" method="post">
+                                    <form id="saveImageForm" action="/save_image" class="card-background-color" method="post">
                                         <input type="hidden" name="filename" value="{{ processed_filename }}">
-                                        <button type="submit" class="card-button">Save Processed Image</button>
+                                        <button type="submit" class="card-button" onclick="submitSaveImageForm()">Save Processed Image</button>
                                     </form>
                                     <form action="/discard_images" class="card-background-color" method="post" onsubmit="confirmDiscardImages('/discard_images'); return false">
                                         <button type="submit" class="card-button">Discard Images</button>
