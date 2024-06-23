@@ -3,96 +3,83 @@ from prep_dataset.helpers import *
 from torchvision import transforms
 import os
 import numpy as np
+from PIL import Image
 
 
 def train(cnn_model, train_dataset, optimizer, criterion, device):
     cnn_model.train()
     total_loss = 0
+    # used with the purpose of saving images in order to visually analyze the results from the training process
     folder_path = "D:\\an III\\bachelor's thesis\\pixelated_images"
-    for i,batch in enumerate(train_dataset.dataset):
-        """
-        for i in batch:
-            input, mask, target, path
-            input = batch[0][i]
-            mask = batch[1][i]
-            target = batch[2][i]
-            path = batch[3][i]
-        """
-        pixelated_image = torch.from_numpy(batch[0])
-        known_array = torch.from_numpy(batch[1])
-        target_array = torch.from_numpy(batch[2])
-        _ = batch[3]
+    for i,batch in enumerate(train_dataset):
+        pixelated_image_batch, known_array_batch, target_array_list, _ = batch
 
-        pixelated_image = pixelated_image.to(device)
-        target_array=target_array.to(device)
+        pixelated_image_batch = pixelated_image_batch.to(device)
+        known_array_batch = known_array_batch.to(device, dtype=torch.bool)
 
-        # normalizing targets
-        target_array_normalized = normalize_targets(target_array)
-        pixelated_image = pixelated_image.reshape(1, pixelated_image.shape[0], pixelated_image.shape[1],pixelated_image.shape[2])
+        if torch.isnan(pixelated_image_batch).any() or torch.isinf(pixelated_image_batch).any():
+            print(f"NaN or Inf detected in pixelated_image_batch at batch {i}")
+            continue
+        if torch.isnan(known_array_batch).any() or torch.isinf(known_array_batch).any():
+            print(f"NaN or Inf detected in known_array_batch at batch {i}")
+            continue
 
-        # normalizing inputs (pixelated image)
-        pixelated_image_normalized = normalize_targets(pixelated_image)
-        pixelated_image_normalized = pixelated_image_normalized.reshape(1, pixelated_image_normalized.shape[2],pixelated_image_normalized.shape[3])
+        batch_loss = 0
+        for j in range(pixelated_image_batch.size(0)):
+            pixelated_image = pixelated_image_batch[j].unsqueeze(0)  # (1, 1, 128, 170)
+            known_array = known_array_batch[j].unsqueeze(0)  # (1, 1, 128, 170)
+            target_array = target_array_list[j].to(device)
 
-        # saving the pixelated image locally
-        pixelated_image_saved = transforms.ToPILImage()(pixelated_image_normalized)
-        pixelated_image_saved.save(os.path.join(folder_path, f"pix_image{i}.jpg"))
-        # saving the target image locally
-        target_array_saved = transforms.ToPILImage()(target_array_normalized)
-        target_array_saved.save(os.path.join(folder_path, f"target_array{i}.jpg"))
+            max_value = pixelated_image.max().item()
+            min_value = pixelated_image.min().item()
 
-        optimizer.zero_grad() # resetting accumulated gradients
-        output = cnn_model(pixelated_image_normalized)
-        output=output.reshape(1,output.shape[1],output.shape[2])
-        # normalizing output of the model
-        output_normalized = normalize_targets(output)
+            # normalization of inputs and targets
+            pixelated_image_normalized = apply_normalization(pixelated_image,max_value,min_value)
+            target_array_normalized = apply_normalization(target_array, max_value, min_value)
 
-        known_array = known_array.to(dtype=torch.bool)
-        crop = output_normalized[~known_array]
-        crop_reshaped = crop.reshape(target_array_normalized.shape)
+            optimizer.zero_grad()  # resetting accumulated gradients
+            output = cnn_model(pixelated_image_normalized)
 
-        # saving the cropped image with the model output
-        output_normalized_saved = transforms.ToPILImage()(output_normalized)
-        output_normalized_saved.save(os.path.join(folder_path, f"output_normalized{i}.jpg"))
+            mask = ~known_array
+            masked_output = output[mask]
+            masked_output = masked_output.view(target_array_normalized.shape)
 
-        loss = criterion(crop_reshaped, target_array_normalized)
-        total_loss += loss.item()
+            loss = criterion(masked_output, target_array_normalized)
+            batch_loss += loss.item()
 
-        loss.backward()  # compute gradients
-        optimizer.step()  # weight update
+            loss.backward()  # compute gradients
+            optimizer.step()  # weight update
 
-    # print(f"Total loss train: {total_loss}")
-    # print(f"Total loss train divided by length: {total_loss / len(train_dataset)}")
+            print(f"Batch {i}, Item {j}: mean {output.mean().item()}")
+            print(f"Batch {i}, Item {j}: masked_output min value {masked_output.min().item()}, max value {masked_output.max().item()}, mean {masked_output.mean().item()}")
+
+            if torch.isnan(output).any() or torch.isinf(output).any():
+                print(f"Batch {i}, Item {j}, output contains NaN or Inf values")
+                continue
+            else:
+                pixelated_image_saved = transforms.ToPILImage()(pixelated_image_normalized.squeeze(0).squeeze(0).cpu())
+                pixelated_image_saved.save(os.path.join(folder_path, f"pix_image_{i}_{j}.jpg"))
+
+                target_array_saved = transforms.ToPILImage()(target_array_normalized.squeeze(0).cpu())
+                target_array_saved.save(os.path.join(folder_path, f"target_array_{i}_{j}.jpg"))
+
+                max_value = pixelated_image.max().item()
+                min_value = pixelated_image.min().item()
+                denormalized_output = denormalize(output.cpu().detach().numpy(), max_value, min_value)
+
+                if np.isnan(denormalized_output).any() or np.isinf(denormalized_output).any():
+                    print(f"NaN or Inf detected in denormalized output at batch {i}, item {j}")
+                    continue
+
+                denormalized_output = np.clip(denormalized_output, 0, 255).astype(np.uint8)
+
+                print(f"Batch {i}, Item {j}: denormalized_output min value {denormalized_output.min()}, max value {denormalized_output.max()}, mean {denormalized_output.mean()}")
+
+                output_normalized_saved = Image.fromarray(denormalized_output.squeeze().squeeze()).convert("L")
+                output_normalized_saved.save(os.path.join(folder_path, f"output_denormalized_{i}_{j}.jpg"))
+
+        total_loss += batch_loss / pixelated_image_batch.size(0)
 
     return total_loss / len(train_dataset)
-
-
-def replace_pixelated_area(pixelated_image,known_array,target_array):
-    start_row,start_col = float("inf"), float("inf")
-    end_row, end_col = 0, 0
-    N = pixelated_image.shape[0]
-
-    tmp_known_array = np.array(known_array.tolist())
-    tmp_known_array = np.max(tmp_known_array, axis=0).squeeze()
-
-    tmp = np.array(pixelated_image.tolist())
-    tmp = np.max(tmp, axis=0).squeeze()
-
-    for row in range(pixelated_image.shape[2]):
-        for col in range(pixelated_image.shape[3]):
-            if not tmp_known_array[row][col]:
-                start_row=min(start_row,row)
-                start_col=min(start_col,col)
-                end_row=max(end_row,row)
-                end_col=max(end_col,col)
-
-    if start_col != 0 and start_row != 0 and end_col != 0 and end_row != 0:
-        tmp[start_row:end_row+1, start_col:end_col+1] = np.array(target_array[0].tolist())
-
-    tmp = np.expand_dims(tmp, axis=0)
-    tmp = np.repeat(tmp, N, axis=0)
-    tmp = torch.tensor(tmp)
-
-    return tmp
 
 
