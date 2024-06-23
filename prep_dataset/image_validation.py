@@ -55,7 +55,7 @@ def create_log_file(path):
 def delete_directory_content(directory_path):
     try:
         files=os.listdir(directory_path)
-        if len(files)!=0:
+        if len(files) != 0:
             for file in files:
                 file_path=os.path.join(directory_path,file)
                 os.remove(file_path)
@@ -66,8 +66,8 @@ def delete_directory_content(directory_path):
 
 
 def validate_images(input_dir: str, output_dir: str, log_file: str, formatter: str = "07d"):
-    input_dir=os.path.abspath(input_dir)
-    absolute_paths=[]
+    input_dir = os.path.abspath(input_dir)
+    absolute_paths = []
 
     create_log_file(log_file)
     log_file_f=open(log_file,"w")

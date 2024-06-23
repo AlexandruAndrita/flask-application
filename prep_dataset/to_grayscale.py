@@ -13,7 +13,7 @@ def apply_formulas(array: np.ndarray):
 
     y_linear=mathematical_formulas.get_y_linear(r_linear,g_linear,b_linear,red_coef,green_coef,blue_coef)
     y=np.where(y_linear<=0.003130,y_linear*12.92,1.055*np.power(y_linear,1/2.4)-0.055)
-    y=mathematical_formulas.normalize_output(y)
+    y=mathematical_formulas.apply_normalization(y,y.max(),y.min())
     return y
 
 

@@ -8,66 +8,83 @@ import matplotlib.pyplot as plt
 def test(cnn_model, test_dataset, criterion, device):
     cnn_model.eval()
     total_loss = 0
-    folder_path = "D:\\an III\\bachelor's thesis\\pixelated_images"
     with torch.no_grad():
-        for i,batch in enumerate(test_dataset.dataset):
-            """
-            for i in batch:
-                input, mask, target, path
-                input = batch[0][i]
-                mask = batch[1][i]
-                target = batch[2][i]
-                path = batch[3][i]
-            """
-            pixelated_image = torch.from_numpy(batch[0])
-            known_array = torch.from_numpy(batch[1])
-            target_array = torch.from_numpy(batch[2])
-            image_path = batch[3]
+        for i,batch in enumerate(test_dataset):
+            pixelated_image_batch, known_array_batch, target_array_list, image_paths = batch
 
-            pixelated_image = pixelated_image.to(device)
-            target_array = target_array.to(device)
+            pixelated_image_batch = pixelated_image_batch.to(device)
+            known_array_batch = known_array_batch.to(device, dtype=torch.bool)
 
-            # normalizing targets
-            target_array_normalized = normalize_targets(target_array)
-            pixelated_image = pixelated_image.reshape(1, pixelated_image.shape[0], pixelated_image.shape[1],pixelated_image.shape[2])
+            batch_loss = 0
+            for j in range(pixelated_image_batch.size(0)):
+                pixelated_image = pixelated_image_batch[j].unsqueeze(0)
+                known_array = known_array_batch[j].unsqueeze(0)
+                target_array = target_array_list[j].to(device)
+                image_path = image_paths[j]
 
-            # normalizing inputs (pixelated image)
-            pixelated_image_normalized = normalize_targets(pixelated_image)
-            pixelated_image_normalized = pixelated_image_normalized.reshape(1, pixelated_image_normalized.shape[2],pixelated_image_normalized.shape[3])
+                max_value = pixelated_image.max().item()
+                min_value = pixelated_image.min().item()
 
-            output = cnn_model(pixelated_image_normalized)
-            output=output.reshape(1,output.shape[1],output.shape[2])
-            # normalizing output of the model
-            output_normalized = normalize_targets(output)
+                # normalization of inputs and targets
+                pixelated_image_normalized = apply_normalization(pixelated_image, max_value, min_value)
+                target_array_normalized = apply_normalization(target_array, max_value, min_value)
 
-            known_array = known_array.to(dtype=torch.bool)
-            crop = output_normalized[~known_array]
-            crop_reshaped = crop.reshape(target_array_normalized.shape)
+                output = cnn_model(pixelated_image_normalized)
 
-            loss = criterion(crop_reshaped, target_array_normalized)
-            total_loss += loss.item()
+                mask = ~known_array
+                masked_output = output[mask]
 
-            # Comparing the original picture with the one provided by the model
-            pil_before_model = transforms.ToPILImage()(pixelated_image_normalized.cpu().detach())
-            pixelated_image_normalized[~known_array] = crop
-            pil_image_model = transforms.ToPILImage()(pixelated_image_normalized.cpu().detach())
-            image_path = Image.open(image_path)
+                masked_output = masked_output.view(target_array_normalized.shape)
 
-            fig, axs = plt.subplots(1, 3, figsize=(10, 5))
+                loss = criterion(masked_output, target_array_normalized)
+                total_loss += loss.item()
 
-            axs[0].imshow(image_path)
-            axs[0].set_title("Original Image")
-            axs[0].axis("off")
+                total_loss += batch_loss / pixelated_image_batch.size(0)
 
-            axs[1].imshow(pil_before_model,cmap="gray")
-            axs[1].set_title("Pixelated Image")
-            axs[1].axis("off")
+                denormalized_output = denormalize(output.cpu().detach().numpy(), max_value, min_value)
 
-            axs[2].imshow(pil_image_model,cmap="gray")
-            axs[2].set_title("Model Output")
-            axs[2].axis("off")
+                if np.isnan(denormalized_output).any() or np.isinf(denormalized_output).any():
+                    print(f"NaN or Inf detected in denormalized output at batch {i}, item {j}")
+                    continue
 
-            plt.tight_layout()
-            plt.show()
+                denormalized_output = np.clip(denormalized_output, 0, 255).astype(np.uint8)
+
+                pil_before_model = transforms.ToPILImage()(pixelated_image_normalized.squeeze(0).squeeze(0).cpu().detach())
+                reconstructed_image = pixelated_image_normalized.clone()
+                denormalized_output = torch.tensor(denormalized_output, dtype=reconstructed_image.dtype, device=reconstructed_image.device)
+                denormalized_output_masked = denormalized_output[~mask].view(reconstructed_image[~mask].shape)
+                reconstructed_image[~mask] = denormalized_output_masked
+
+                pil_image_model = transforms.ToPILImage()(reconstructed_image.squeeze(0).squeeze(0).cpu().detach())
+
+                output_no_mask = transforms.ToPILImage()(output.squeeze(0).squeeze(0).cpu().detach())
+
+                try:
+                    image_path = Image.open(image_path)
+                except Exception as e:
+                    raise Exception(f"Image {image_path} is already opened or {image_path} does not exist. Exception: {e}")
+
+                # useful plot for general comparison between input and outputs
+                fig, axs = plt.subplots(2, 2, figsize=(10, 5))
+
+                axs[0,0].imshow(image_path)
+                axs[0,0].set_title("Original Image")
+                axs[0,0].axis("off")
+
+                axs[0,1].imshow(pil_before_model,cmap="gray")
+                axs[0,1].set_title("Pixelated Image")
+                axs[0,1].axis("off")
+
+                axs[1,0].imshow(pil_image_model,cmap="gray")
+                axs[1,0].set_title("Model Output with Mask")
+                axs[1,0].axis("off")
+
+                axs[1, 1].imshow(output_no_mask, cmap="gray")
+                axs[1, 1].set_title("Model Output no Mask")
+                axs[1, 1].axis("off")
+
+                plt.tight_layout()
+                plt.suptitle("Original vs. Pixelated vs. ML Model")
+                plt.show()
 
     return total_loss / len(test_dataset)

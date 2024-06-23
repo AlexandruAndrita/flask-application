@@ -41,8 +41,8 @@ class RandomImagePixelationDataset(Dataset):
                 img = Image.open(f)
                 width, height = img.size
                 if not ((height == 128 and width == 170) or (height == 170 and width == 128)):
-                    print("Error: image '" + f + "' does not have the right size")
-                    # raise ValueError("Error: image '" + f + "' does not have the right size")
+                    # printing error message, not raising ValueError, just as information only
+                    print("ValueError: image '" + f + "' does not have the right size")
                 else:
                     name, extension = os.path.splitext(f)
                     if extension in [".jpg", ".jpeg", ".JPG", ".JPEG"]:

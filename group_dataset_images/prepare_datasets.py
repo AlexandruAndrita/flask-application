@@ -21,8 +21,7 @@ def get_images(input_directory):
                                             size_range=(4, 16))
 
     """
-    up until this point, images should have the maximum height and width in each batch, they should be grayscale
-    and prepared for training
+    up until this point, images have the maximum height and width in each batch, they are grayscale and prepared for training
     """
 
     images_with_path = list()
@@ -59,14 +58,13 @@ def get_images(input_directory):
     # max_height = max(test_data.max_height, validation_data.max_height, training_data.max_height)
     # max_width = max(test_data.max_width, validation_data.max_width, training_data.max_width)
 
-    # collate_function = lambda x: stack_with_padding(x, max_height, max_width)
-    train_dataset = DataLoader(dataset=training_data,shuffle=True,batch_size=16,collate_fn=stack_as_collate)
-    validation_dataset = DataLoader(dataset=validation_data,shuffle=False,batch_size=16,collate_fn=stack_as_collate)
-    test_dataset = DataLoader(dataset=test_data,shuffle=False,batch_size=16,collate_fn=stack_as_collate)
+    train_dataset = DataLoader(dataset=training_data,shuffle=True,batch_size=32,collate_fn=stack_as_collate)
+    validation_dataset = DataLoader(dataset=validation_data,shuffle=False,batch_size=32,collate_fn=stack_as_collate)
+    test_dataset = DataLoader(dataset=test_data,shuffle=False,batch_size=32,collate_fn=stack_as_collate)
 
     return train_dataset,validation_dataset,test_dataset
 
 
 if __name__ == "__main__":
     input_directory_path = "D:\\an III\\bachelor's thesis\\thesis\dataset\\test_first_stage"
-    _ ,_ ,_ = get_images(input_directory_path)
+    _, _, _ = get_images(input_directory_path)

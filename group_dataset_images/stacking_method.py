@@ -63,5 +63,4 @@ def stack_with_padding(batch_as_list: list, max_height: int, max_width: int):
     image_files=[image[3] for image in batch_as_list]
 
     return stacked_pixelated_images,stacked_known_arrays,target_arrays,image_files
-    #return stacked_pixelated_images, stacked_known_arrays, stacked_target_arrays, image_files
 
