@@ -3,6 +3,7 @@ from prep_dataset.helpers import *
 from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def test(cnn_model, test_dataset, criterion, device):
